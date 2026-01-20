@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VENORA PRO - نظام المبيعات المتكامل</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --dark-bg: #1a1a2e; --card-bg: #16213e; --pink: #d63384; --green: #27ae60; --blue: #0984e3; --text: #ffffff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Tajawal', sans-serif; margin: 0; background: var(--dark-bg); color: var(--text); transition: 0.3s; }
+        header { background: #111; padding: 10px; display: flex; align-items: center; border-bottom: 3px solid var(--pink); position: sticky; top: 0; z-index: 1000; }
+        .nav-scroll { display: flex; overflow-x: auto; gap: 10px; padding: 5px; scrollbar-width: none; flex-grow: 1; }
+        .nav-item { padding: 8px 15px; border-radius: 8px; color: #ccc; cursor: pointer; white-space: nowrap; font-size: 14px; }
+        .nav-item.active { background: var(--pink); color: white; font-weight: bold; }
+        .container { padding: 15px; padding-bottom: 80px; }
+        .card { background: var(--card-bg); border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #252545; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #252545; border-radius: 10px; background: #0f172a; color: white; font-size: 15px; }
+        .btn { width: 100%; padding: 14px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 5px; color: white; transition: 0.2s; }
+        .btn-pink { background: var(--pink); }
+        .btn-green { background: var(--green); }
+        .btn-blue { background: var(--blue); }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: center; border-bottom: 1px solid #252545; font-size: 13px; }
+        .hidden { display: none !important; }
+        #dev-code-editor { width: 100%; height: 200px; background: #000; color: #0f0; font-family: monospace; padding: 10px; border-radius: 10px; border: 1px solid var(--pink); direction: ltr; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="nav-scroll">
+            <div class="nav-item active" onclick="showTab('sales', this)">🛒 المبيعات</div>
+            <div class="nav-item" onclick="showTab('inventory', this)">📦 المخزن</div>
+            <div class="nav-item" onclick="showTab('profits', this)">📊 الأرباح</div>
+            <div class="nav-item" onclick="showTab('dev', this)">⚙️ التطوير</div>
+        </div>
+    </header>
+
+    <div class="container">
+        <section id="sales-sec">
+            <div class="card">
+                <h3>إجراء بيع جديد</h3>
+                <select id="s-prod" onchange="updatePriceHint()"></select>
+                <input type="number" id="s-qty" value="1" placeholder="الكمية">
+                <p id="price-hint" style="color: var(--pink); font-size: 12px;"></p>
+                <button class="btn btn-pink" onclick="addToCart()">+ إضافة للقائمة</button>
+            </div>
+            <div class="card">
+                <table>
+                    <thead><tr><th>المادة</th><th>السعر</th><th>العدد</th><th>حذف</th></tr></thead>
+                    <tbody id="cart-body"></tbody>
+                </table>
+                <h2 style="margin: 20px 0; text-align: center;">الصافي: <span id="cart-total" style="color: var(--pink);">0</span> د.ع</h2>
+                <button class="btn btn-blue" onclick="confirmSale()">✅ إتمام وحفظ العملية</button>
+            </div>
+        </section>
+
+        <section id="inventory-sec" class="hidden">
+            <div class="card">
+                <h3>إضافة مواد للمخزن</h3>
+                <input type="text" id="i-n" placeholder="اسم المادة">
+                <input type="number" id="i-q" placeholder="الكمية">
+                <input type="number" id="i-c" placeholder="سعر الكلفة">
+                <input type="number" id="i-p" placeholder="سعر البيع">
+                <button class="btn btn-green" onclick="addInv()">حفظ في المخزن</button>
+            </div>
+            <div class="card">
+                <table id="inv-table">
+                    <thead><tr><th>المادة</th><th>الكمية</th><th>السعر</th><th>حذف</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="profits-sec" class="hidden">
+            <div class="card" style="text-align: center;">
+                <h3>إجمالي الأرباح</h3>
+                <h1 id="total-profit" style="color: var(--green);">0 د.ع</h1>
+            </div>
+        </section>
+
+        <section id="dev-sec" class="hidden">
+            <div class="card">
+                <h3>🛠️ بيئة التطوير وتحديث الكود</h3>
+                <p style="font-size: 12px; color: #ccc;">ضع أكواد JavaScript هنا وسيتم حفظها للأبد:</p>
+                <textarea id="dev-code-editor" placeholder="// اكتب كود التطوير هنا..."></textarea>
+                <button class="btn btn-blue" id="main-update-btn">🚀 تحديث النظام وتطبيق الأكواد</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // البيانات الأساسية
+        let data = JSON.parse(localStorage.getItem('venora_db')) || { inv: [], profits: 0 };
+        let cart = [];
+
+        function saveDB() { localStorage.setItem('venora_db', JSON.stringify(data)); }
+
+        function showTab(id, el) {
+            document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+            document.getElementById(id + '-sec').classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            el.classList.add('active');
+        }
+
+        // وظائف المخزن والمبيعات
+        function addInv() {
+            const n = document.getElementById('i-n').value, q = parseInt(document.getElementById('i-q').value),
+                  c = parseInt(document.getElementById('i-c').value), p = parseInt(document.getElementById('i-p').value);
+            if(!n || isNaN(q)) return;
+            data.inv.push({id: Date.now(), n, q, c, p});
+            saveDB(); render();
+            document.querySelectorAll('#inventory-sec input').forEach(i => i.value = '');
+        }
+
+        function updatePriceHint() {
+            const item = data.inv.find(x => x.id == document.getElementById('s-prod').value);
+            document.getElementById('price-hint').innerText = item ? `السعر: ${item.p} | المخزون: ${item.q}` : '';
+        }
+
+        function addToCart() {
+            const id = document.getElementById('s-prod').value, qty = parseInt(document.getElementById('s-qty').value),
+                  item = data.inv.find(x => x.id == id);
+            if(item && qty <= item.q) {
+                cart.push({...item, cartQty: qty});
+                render();
+            } else alert("الكمية غير متوفرة!");
+        }
+
+        function confirmSale() {
+            if(!cart.length) return;
+            cart.forEach(c => {
+                const i = data.inv.find(x => x.id === c.id);
+                if(i) { i.q -= c.cartQty; data.profits += (c.p - i.c) * c.cartQty; }
+            });
+            cart = []; saveDB(); render();
+            alert("تمت العملية بنجاح");
+        }
+
+        function render() {
+            // رندر المخزن
+            const invBody = document.querySelector('#inv-table tbody'), select = document.getElementById('s-prod');
+            invBody.innerHTML = ''; select.innerHTML = '<option value="">-- اختر مادة --</option>';
+            data.inv.forEach(i => {
+                invBody.innerHTML += `<tr><td>${i.n}</td><td>${i.q}</td><td>${i.p}</td><td onclick="delInv(${i.id})">❌</td></tr>`;
+                select.innerHTML += `<option value="${i.id}">${i.n}</option>`;
+            });
+            // رندر السلة
+            const cartBody = document.getElementById('cart-body');
+            cartBody.innerHTML = ''; let total = 0;
+            cart.forEach((item, idx) => {
+                total += (item.p * item.cartQty);
+                cartBody.innerHTML += `<tr><td>${item.n}</td><td>${item.p}</td><td>${item.cartQty}</td><td onclick="cart.splice(${idx},1);render()">❌</td></tr>`;
+            });
+            document.getElementById('cart-total').innerText = total.toLocaleString();
+            document.getElementById('total-profit').innerText = data.profits.toLocaleString() + " د.ع";
+        }
+
+        function delInv(id) { data.inv = data.inv.filter(x => x.id !== id); saveDB(); render(); }
+
+        // --- نظام الحفظ المدمج والذكي للتطوير ---
+        const DEV_KEY = 'venora_permanent_dev_code';
+        
+        document.getElementById('main-update-btn').onclick = function() {
+            const code = document.getElementById('dev-code-editor').value;
+            try {
+                new Function(code)(); // تنفيذ الكود
+                localStorage.setItem(DEV_KEY, code); // الحفظ الدائم
+                alert("✅ تم التحديث والحفظ بنجاح! التغييرات لن تنمسح أبداً.");
+                render();
+            } catch (e) { alert("❌ خطأ في الكود: " + e.message); }
+        };
+
+        // استعادة التطويرات عند التشغيل
+        window.addEventListener('load', () => {
+            const savedCode = localStorage.getItem(DEV_KEY);
+            if(savedCode) {
+                document.getElementById('dev-code-editor').value = savedCode;
+                try { new Function(savedCode)(); render(); } catch(e) {}
+            }
+        });
+
+        render();
+    </script>
+</body>
+</html>
